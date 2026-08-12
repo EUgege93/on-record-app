@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>On Record — Tenant Maintenance Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1E2A3A;
+    --ink-soft:#4B5A6B;
+    --paper:#FAF7EF;
+    --paper-2:#F1EBDD;
+    --card:#FFFDF8;
+    --stamp-red:#B23A2E;
+    --carbon-blue:#3F6690;
+    --copy-amber:#B87F1F;
+    --resolved-green:#4B7A5B;
+    --line:#D8CFB8;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    background-image:
+      linear-gradient(var(--paper) 1px, transparent 1px),
+      linear-gradient(90deg, var(--paper) 1px, transparent 1px);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  .app{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+
+  /* Header */
+  .wordmark{
+    font-family:'Special Elite', monospace;
+    font-size:15px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:4px;
+  }
+  .wordmark::before{content:"●";color:var(--stamp-red);font-size:10px;}
+  h1{
+    font-family:'Special Elite', monospace;
+    font-size:30px;
+    font-weight:400;
+    margin:0 0 6px;
+    letter-spacing:0.01em;
+  }
+  .tagline{color:var(--ink-soft);font-size:15px;margin:0 0 22px;max-width:46ch;}
+
+  /* Tabs */
+  .tabs{
+    display:flex;
+    gap:4px;
+    border-bottom:2px solid var(--line);
+    margin-bottom:26px;
+  }
+  .tab-btn{
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:13.5px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    background:none;
+    border:none;
+    padding:10px 14px;
+    cursor:pointer;
+    color:var(--ink-soft);
+    position:relative;
+    top:2px;
+  }
+  .tab-btn.active{color:var(--ink);}
+  .tab-btn.active::after{
+    content:"";
+    position:absolute;
+    left:8px;right:8px;bottom:-2px;
+    height:2px;
+    background:var(--stamp-red);
+  }
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* Form */
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--ink-soft);
+    margin:16px 0 6px;
+  }
+  label:first-of-type{margin-top:0;}
+  .form-eyebrow{
+    font-family:'Special Elite', monospace;
+    font-size:11.5px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:24px 0 12px;
+    padding-top:16px;
+    border-top:1.5px dashed var(--line);
+  }
+  .form-eyebrow:first-child{margin-top:0;padding-top:0;border-top:none;}
+  .detail-row{display:flex;gap:12px;flex-wrap:wrap;}
+  .detail-row > div{flex:1;min-width:130px;}
+  .optional{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-soft);}
+  .ticket-filer{font-size:12.5px;color:var(--ink-soft);margin:2px 0 10px;}
+  .send-status{font-size:13px;font-weight:600;margin:6px 0 4px;padding:8px 12px;border-radius:4px;}
+  .send-status.sending{background:var(--paper-2);color:var(--ink-soft);}
+  .send-status.success{background:#EAF3EC;color:var(--resolved-green);}
+  .send-status.failure{background:#FBEAE8;color:var(--stamp-red);}
+  .form-error{display:none;background:#FBEAE8;color:var(--stamp-red);font-size:13px;font-weight:600;padding:10px 12px;border-radius:4px;margin-top:16px;}
+  .form-error.show{display:block;}
+  input.field-error, textarea.field-error{border-color:var(--stamp-red);}
+  input[type=text], textarea, select{
+    width:100%;
+    font-family:'IBM Plex Sans', sans-serif;
+    font-size:14.5px;
+    padding:10px 12px;
+    border:1.5px solid var(--line);
+    border-radius:4px;
+    background:var(--card);
+    color:var(--ink);
+  }
+  textarea{resize:vertical;min-height:80px;}
+  input:focus, textarea:focus, select:focus{outline:2px solid var(--carbon-blue);outline-offset:1px;}
+
+  .urgency-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .urgency-opt{
+    flex:1;min-width:100px;
+    border:1.5px solid var(--line);
+    border-radius:4px;
+    padding:10px 8px;
+    text-align:center;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    background:var(--card);
+    color:var(--ink-soft);
+  }
+  .urgency-opt input{display:none;}
+  .urgency-opt.sel-routine.checked{border-color:var(--ink-soft);color:var(--ink);background:var(--paper-2);}
+  .urgency-opt.sel-soon.checked{border-color:var(--carbon-blue);color:var(--carbon-blue);background:#EAF1F7;}
+  .urgency-opt.sel-urgent.checked{border-color:var(--copy-amber);color:var(--copy-amber);background:#FBF1DF;}
+  .urgency-opt.sel-emergency.checked{border-color:var(--stamp-red);color:var(--stamp-red);background:#FBEAE8;}
+
+  .submit-btn{
+    margin-top:22px;
+    width:100%;
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    padding:13px;
+    font-size:14.5px;
+    font-weight:600;
+    border-radius:4px;
+    cursor:pointer;
+    letter-spacing:0.02em;
+  }
+  .submit-btn:hover{background:var(--carbon-blue);}
+
+  /* Photo attach */
+  .photo-box{
+    border:1.5px dashed var(--line);
+    border-radius:4px;
+    padding:16px;
+    text-align:center;
+    cursor:pointer;
+    background:var(--card);
+    color:var(--ink-soft);
+    font-size:13.5px;
+    font-weight:600;
+  }
+  .photo-box:hover{border-color:var(--carbon-blue);color:var(--carbon-blue);}
+  .photo-box .hint{display:block;font-weight:400;font-size:12px;margin-top:3px;color:var(--ink-soft);}
+  .photo-box.filled{
+    display:flex;align-items:center;gap:12px;text-align:left;cursor:default;padding:10px 12px;
+  }
+  .photo-thumb{width:52px;height:52px;object-fit:cover;border-radius:4px;border:1px solid var(--line);flex-shrink:0;}
+  .photo-meta{flex:1;font-size:13px;color:var(--ink);font-weight:400;}
+  .photo-remove{background:none;border:none;color:var(--stamp-red);font-size:12.5px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0;}
+  .ticket-photo{width:100%;max-width:220px;display:block;border-radius:4px;border:1px solid var(--line);margin-bottom:12px;}
+
+  /* Confirmation */
+  .confirm{display:none;}
+  .confirm.show{display:block;animation:fade .3s ease;}
+  .envelope{
+    border:1.5px solid var(--line);
+    background:var(--card);
+    border-radius:4px;
+    padding:16px 18px;
+    margin-top:14px;
+  }
+  .envelope-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:8px;
+  }
+  .envelope-body{font-size:14px;line-height:1.6;color:var(--ink);}
+  .envelope-body p{margin:0 0 10px;}
+  .confirm-actions{display:flex;gap:10px;margin-top:18px;}
+  .btn-secondary{
+    flex:1;background:none;border:1.5px solid var(--ink);color:var(--ink);
+    padding:11px;border-radius:4px;font-weight:600;font-size:13.5px;cursor:pointer;
+  }
+  .btn-secondary:hover{background:var(--paper-2);}
+
+  /* Ticket cards */
+  .ticket{
+    background:var(--card);
+    border:1.5px solid var(--line);
+    border-radius:6px;
+    padding:18px 20px;
+    margin-bottom:18px;
+    position:relative;
+  }
+  .ticket-top{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;}
+  .ticket-id{font-family:'IBM Plex Mono', monospace;font-size:12px;color:var(--ink-soft);}
+  .ticket-date{font-family:'IBM Plex Mono', monospace;font-size:12px;color:var(--ink-soft);}
+  .ticket-title{font-size:17px;font-weight:600;margin:8px 0 4px;}
+  .ticket-cat{font-size:12px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.05em;}
+  .ticket-desc{font-size:14px;color:var(--ink-soft);margin:10px 0 14px;line-height:1.5;}
+
+  .stamp-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .stamp{
+    font-family:'Special Elite', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    border:1.5px dashed;
+    border-radius:14px;
+    padding:5px 12px;
+    transform:rotate(-2deg);
+    display:inline-block;
+  }
+  .stamp.urg-routine{border-color:var(--ink-soft);color:var(--ink-soft);}
+  .stamp.urg-soon{border-color:var(--carbon-blue);color:var(--carbon-blue);}
+  .stamp.urg-urgent{border-color:var(--copy-amber);color:var(--copy-amber);}
+  .stamp.urg-emergency{border-color:var(--stamp-red);color:var(--stamp-red);}
+  .stamp.st-filed{border-color:var(--ink-soft);color:var(--ink-soft);transform:rotate(1.5deg);}
+  .stamp.st-followup{border-color:var(--carbon-blue);color:var(--carbon-blue);transform:rotate(1.5deg);}
+  .stamp.st-escalated{border-color:var(--stamp-red);color:var(--stamp-red);transform:rotate(1.5deg);}
+  .stamp.st-acknowledged{border-color:var(--copy-amber);color:var(--copy-amber);transform:rotate(1.5deg);}
+  .stamp.st-progress{border-color:var(--copy-amber);color:var(--copy-amber);transform:rotate(1.5deg);}
+  .stamp.st-resolved{border-color:var(--resolved-green);color:var(--resolved-green);transform:rotate(1.5deg);}
+
+  .perf{
+    border-top:2px dashed var(--line);
+    margin:4px 0 14px;
+    position:relative;
+  }
+  .trail-toggle{
+    background:none;border:none;color:var(--carbon-blue);font-weight:600;font-size:12.5px;
+    cursor:pointer;padding:0;letter-spacing:0.02em;
+  }
+  .trail{display:none;margin-top:12px;}
+  .trail.open{display:block;}
+  .trail-item{
+    display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--paper-2);font-size:13px;
+  }
+  .trail-item:last-child{border-bottom:none;}
+  .trail-date{font-family:'IBM Plex Mono', monospace;font-size:11.5px;color:var(--ink-soft);white-space:nowrap;min-width:82px;}
+  .trail-text{color:var(--ink);line-height:1.5;}
+  .next-note{font-size:12.5px;color:var(--ink-soft);font-style:italic;margin-top:10px;}
+
+  /* Directory */
+  .chip-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .refresh-row{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+  .refresh-btn{background:none;border:1.5px solid var(--ink);color:var(--ink);border-radius:4px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .refresh-btn:hover{background:var(--paper-2);}
+  .refresh-btn:disabled{opacity:0.5;cursor:default;}
+  .refresh-note{font-size:12px;color:var(--ink-soft);font-style:italic;}
+  .chip{
+    border:1.5px solid var(--line);border-radius:14px;padding:6px 14px;font-size:12.5px;font-weight:600;
+    cursor:pointer;background:var(--card);color:var(--ink-soft);
+  }
+  .chip.active{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+  .dir-card{
+    background:var(--card);border:1.5px solid var(--line);border-radius:6px;
+    padding:16px 18px;margin-bottom:14px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  }
+  .dir-info{flex:1;min-width:200px;}
+  .dir-name{font-weight:600;font-size:15.5px;}
+  .dir-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--carbon-blue);margin:2px 0 6px;}
+  .dir-blurb{font-size:13.5px;color:var(--ink-soft);margin-bottom:4px;}
+  .dir-social{font-size:12px;color:var(--ink-soft);font-style:italic;}
+  .dir-actions{display:flex;flex-direction:column;gap:6px;justify-content:center;}
+  .dir-btn{
+    font-size:12.5px;font-weight:600;border:1.5px solid var(--ink);border-radius:4px;
+    padding:8px 14px;text-decoration:none;color:var(--ink);text-align:center;
+  }
+  .dir-btn:hover{background:var(--paper-2);}
+  .dir-note{font-size:12.5px;color:var(--ink-soft);margin:-6px 0 18px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="wordmark">On Record</div>
+  <h1>Every request, on the record.</h1>
+  <p class="tagline">File a maintenance issue once. On Record keeps sending, tracking, and escalating it until someone responds — and helps you find your own help when they don't.</p>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="report">File a Request</button>
+    <button class="tab-btn" data-tab="requests">My Requests</button>
+    <button class="tab-btn" data-tab="directory">Find Help</button>
+  </div>
+
+  <!-- REPORT TAB -->
+  <div class="panel active" id="panel-report">
+    <div id="report-form">
+      <div class="form-eyebrow">Your Details</div>
+      <label for="tenant-name">Full name</label>
+      <input type="text" id="tenant-name" placeholder="So the property manager knows who's asking" required>
+
+      <div class="detail-row">
+        <div>
+          <label for="tenant-unit">Unit / flat number</label>
+          <input type="text" id="tenant-unit" placeholder="e.g. 4B" required>
+        </div>
+        <div>
+          <label for="tenant-building">Building / block <span class="optional">(optional)</span></label>
+          <select id="tenant-building">
+            <option value="">Select...</option>
+            <option>Cross Green Quarter - A</option>
+            <option>Cross Green Quarter - B</option>
+            <option>Cross Green Quarter - C</option>
+            <option>Cross Green Quarter - D</option>
+          </select>
+        </div>
+      </div>
+
+      <label for="tenant-phone">Phone number</label>
+      <input type="tel" id="tenant-phone" placeholder="So they can reach you about access or scheduling" required>
+
+      <div class="form-eyebrow">The Issue</div>
+      <label for="title">What's the issue?</label>
+      <input type="text" id="title" placeholder="e.g. Bathroom sink won't drain" required>
+
+      <label for="category">Category</label>
+      <select id="category">
+        <option>Plumbing</option>
+        <option>Electrical</option>
+        <option>Heating / Cooling</option>
+        <option>Appliance</option>
+        <option>Pest</option>
+        <option>Structural</option>
+        <option>Other</option>
+      </select>
+
+      <label>Urgency</label>
+      <div class="urgency-row" id="urgency-row">
+        <label class="urgency-opt sel-routine"><input type="radio" name="urgency" value="routine">Routine</label>
+        <label class="urgency-opt sel-soon"><input type="radio" name="urgency" value="soon">Needs attention</label>
+        <label class="urgency-opt sel-urgent"><input type="radio" name="urgency" value="urgent">Urgent</label>
+        <label class="urgency-opt sel-emergency"><input type="radio" name="urgency" value="emergency">Emergency</label>
+      </div>
+
+      <label for="desc">Describe what's happening</label>
+      <textarea id="desc" placeholder="What's wrong, when it started, anything you've already tried." required></textarea>
+
+      <label>Add a photo (optional)</label>
+      <input type="file" accept="image/*" capture="environment" id="photo-input" style="display:none;">
+      <div class="photo-box" id="photo-box">
+        Attach a Photo
+        <span class="hint">Opens your camera on mobile, or choose a file</span>
+      </div>
+
+      <div class="form-error" id="form-error"></div>
+
+      <button type="button" class="submit-btn" id="submit-btn">File Request</button>
+    </div>
+
+    <div class="confirm" id="confirm-block">
+      <label style="margin-top:24px;">Filed</label>
+      <div class="send-status" id="send-status"></div>
+      <div class="envelope">
+        <div class="envelope-label">Sent on your behalf to your property manager</div>
+        <div class="envelope-body" id="envelope-text"></div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-secondary" id="file-another">File Another Request</button>
+        <button class="btn-secondary" id="go-to-requests">View My Requests</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUESTS TAB -->
+  <div class="panel" id="panel-requests">
+    <div class="refresh-row">
+      <button class="refresh-btn" id="refresh-requests">Refresh status</button>
+      <span class="refresh-note" id="refresh-note"></span>
+    </div>
+    <div id="requests-list"></div>
+  </div>
+
+  <!-- DIRECTORY TAB -->
+  <div class="panel" id="panel-directory">
+    <p class="dir-note">Contacts shared by other tenants. On Record doesn't book or take payment — you deal with them directly.</p>
+    <div class="chip-row" id="chip-row">
+      <button class="chip active" data-cat="All">All</button>
+      <button class="chip" data-cat="Cleaning">Cleaning</button>
+      <button class="chip" data-cat="Moving">Moving</button>
+      <button class="chip" data-cat="Handyman">Handyman</button>
+    </div>
+    <div id="dir-list"></div>
+  </div>
+</div>
+
+<script>
+  // ---------- Tabs ----------
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const panels = { report: document.getElementById('panel-report'), requests: document.getElementById('panel-requests'), directory: document.getElementById('panel-directory') };
+  function showTab(name){
+    tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    Object.entries(panels).forEach(([k,p]) => p.classList.toggle('active', k === name));
+  }
+  tabBtns.forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+  // ---------- Urgency selector ----------
+  document.querySelectorAll('.urgency-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.urgency-opt').forEach(o => o.classList.remove('checked'));
+      opt.classList.add('checked');
+      opt.querySelector('input').checked = true;
+    });
+  });
+
+  // ---------- Photo attach ----------
+  const photoInput = document.getElementById('photo-input');
+  const photoBox = document.getElementById('photo-box');
+  let currentPhoto = null; // data URL, for the on-screen preview and ticket card
+  let currentPhotoFile = null; // raw File, for the actual email attachment
+
+  function renderPhotoBox(){
+    if(currentPhoto){
+      photoBox.classList.add('filled');
+      photoBox.innerHTML = `
+        <img class="photo-thumb" src="${currentPhoto}" alt="Attached photo">
+        <span class="photo-meta">Photo attached</span>
+        <button type="button" class="photo-remove" id="photo-remove">Remove</button>
+      `;
+      document.getElementById('photo-remove').addEventListener('click', e => {
+        e.stopPropagation();
+        currentPhoto = null;
+        currentPhotoFile = null;
+        photoInput.value = '';
+        renderPhotoBox();
+      });
+    } else {
+      photoBox.classList.remove('filled');
+      photoBox.innerHTML = `Attach a Photo<span class="hint">Opens your camera on mobile, or choose a file</span>`;
+    }
+  }
+
+  photoBox.addEventListener('click', () => {
+    if(!currentPhoto) photoInput.click();
+  });
+
+  photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if(!file) return;
+    currentPhotoFile = file;
+    const reader = new FileReader();
+    reader.onload = () => {
+      currentPhoto = reader.result;
+      renderPhotoBox();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ---------- Tenant profile (remembers name/unit/phone across visits) ----------
+  async function loadProfile(){
+    if(!window.storage) return; // storage API not available in this context, skip silently
+    try{
+      const res = await window.storage.get('tenant-profile', false);
+      if(res && res.value){
+        const p = JSON.parse(res.value);
+        document.getElementById('tenant-name').value = p.name || '';
+        document.getElementById('tenant-unit').value = p.unit || '';
+        document.getElementById('tenant-building').value = p.building || '';
+        document.getElementById('tenant-phone').value = p.phone || '';
+      }
+    }catch(e){
+      // no saved profile yet — that's expected on a first visit
+    }
+  }
+  async function saveProfile(profile){
+    if(!window.storage) return;
+    try{
+      await window.storage.set('tenant-profile', JSON.stringify(profile), false);
+    }catch(e){
+      console.error('Could not save tenant profile', e);
+    }
+  }
+  loadProfile();
+
+  // ---------- Data ----------
+  function generateTicketId(){
+    const time = Date.now().toString(36).toUpperCase().slice(-4);
+    const rand = Math.random().toString(36).slice(2, 4).toUpperCase();
+    return 'OR-' + time + rand;
+  }
+  const urgencyLabel = {routine:'Routine', soon:'Needs Attention', urgent:'Urgent', emergency:'Emergency'};
+  const statusLabel = {filed:'Filed', followup:'Follow-Up Sent', escalated:'Escalated', acknowledged:'Acknowledged', progress:'In Progress', resolved:'Resolved'};
+
+  let requests = [];
+
+  async function loadTicketsFromServer(){
+    try{
+      const res = await fetch('/.netlify/functions/get-tickets');
+      const data = await res.json();
+      if(data.ok && Array.isArray(data.tickets)){
+        requests = data.tickets;
+        renderRequests();
+      }
+    }catch(err){
+      console.error('Could not load tickets from server', err);
+    }
+  }
+
+  function renderRequests(){
+    const list = document.getElementById('requests-list');
+    list.innerHTML = '';
+    requests.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'ticket';
+      card.innerHTML = `
+        <div class="ticket-top">
+          <span class="ticket-id">${r.id}</span>
+          <span class="ticket-date">Filed ${r.filedDate}</span>
+        </div>
+        <div class="ticket-cat">${r.category}</div>
+        <div class="ticket-title">${r.title}</div>
+        <div class="ticket-filer">Filed by ${r.name} — Unit ${r.unit}${r.building ? ', ' + r.building : ''} — ${r.phone}</div>
+        ${r.photo ? `<img class="ticket-photo" src="${r.photo}" alt="Photo attached to ${r.id}">` : ''}
+        <div class="ticket-desc">${r.description}</div>
+        <div class="stamp-row">
+          <span class="stamp urg-${r.urgency}">${urgencyLabel[r.urgency]}</span>
+          <span class="stamp st-${r.status}">${statusLabel[r.status]}</span>
+        </div>
+        <div class="perf"></div>
+        <button class="trail-toggle">Show paper trail (${r.trail.length})</button>
+        <div class="trail">
+          ${r.trail.map(t => `<div class="trail-item"><span class="trail-date">${t.date}</span><span class="trail-text">${t.text}</span></div>`).join('')}
+          ${r.status === 'filed' ? `<div class="next-note">Next automatic follow-up in 3 days if there's no response.</div>` : ''}
+        </div>
+      `;
+      const toggle = card.querySelector('.trail-toggle');
+      const trail = card.querySelector('.trail');
+      toggle.addEventListener('click', () => {
+        trail.classList.toggle('open');
+        toggle.textContent = (trail.classList.contains('open') ? 'Hide paper trail (' : 'Show paper trail (') + r.trail.length + ')';
+      });
+      list.appendChild(card);
+    });
+  }
+
+  // ---------- Report form ----------
+  const form = document.getElementById('report-form');
+  const confirmBlock = document.getElementById('confirm-block');
+  const envelopeText = document.getElementById('envelope-text');
+  const sendStatus = document.getElementById('send-status');
+  const formError = document.getElementById('form-error');
+
+  ['tenant-name','tenant-unit','tenant-phone','title','desc'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      document.getElementById(id).classList.remove('field-error');
+    });
+  });
+
+  const EMAILJS_SERVICE_ID = 'service_ds6pggf';
+  const EMAILJS_TEMPLATE_ID = 'template_6111kxp';
+  const EMAILJS_PUBLIC_KEY = '3CtUe6cZPAQp7Qu2B';
+
+  async function submitToEmailJS(fields){
+    const res = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service_id: EMAILJS_SERVICE_ID,
+        template_id: EMAILJS_TEMPLATE_ID,
+        user_id: EMAILJS_PUBLIC_KEY,
+        template_params: fields
+      })
+    });
+    if(!res.ok){
+      const detail = await res.text().catch(() => '');
+      throw new Error('EmailJS responded with status ' + res.status + (detail ? ': ' + detail : ''));
+    }
+  }
+
+  document.getElementById('submit-btn').addEventListener('click', () => {
+    const name = document.getElementById('tenant-name').value.trim();
+    const unit = document.getElementById('tenant-unit').value.trim();
+    const building = document.getElementById('tenant-building').value.trim();
+    const phone = document.getElementById('tenant-phone').value.trim();
+    const title = document.getElementById('title').value.trim();
+    const category = document.getElementById('category').value;
+    const urgencyInput = document.querySelector('input[name=urgency]:checked');
+    const urgency = urgencyInput ? urgencyInput.value : 'soon';
+    const desc = document.getElementById('desc').value.trim();
+
+    const required = [
+      {id:'tenant-name', label:'your name', value:name},
+      {id:'tenant-unit', label:'unit number', value:unit},
+      {id:'tenant-phone', label:'phone number', value:phone},
+      {id:'title', label:'issue', value:title},
+      {id:'desc', label:'description', value:desc}
+    ];
+    const missing = required.filter(f => !f.value);
+    document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    if(missing.length){
+      missing.forEach(f => document.getElementById(f.id).classList.add('field-error'));
+      formError.textContent = 'Please fill in: ' + missing.map(f => f.label).join(', ') + '.';
+      formError.classList.add('show');
+      document.getElementById(missing[0].id).focus();
+      return;
+    }
+    formError.classList.remove('show');
+
+    const id = generateTicketId();
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const hadPhoto = !!currentPhoto;
+    const acknowledgeUrl = window.location.origin + '/.netlify/functions/acknowledge?ticket=' + id;
+
+    requests.unshift({
+      id, title, category, urgency, status:'filed', filedDate:today, description:desc, photo:currentPhoto,
+      name, unit, building, phone,
+      trail:[{date:today, text:'Request filed and sent to your property manager via email.'}]
+    });
+
+    saveProfile({name, unit, building, phone});
+
+    fetch('/.netlify/functions/create-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id, title, category, urgency, filedDate: today, description: desc,
+        name, unit, building, phone,
+        photoNote: hadPhoto ? 'A photo was attached in the app (not included in this test email).' : 'No photo attached.'
+      })
+    }).catch(err => console.error('Could not persist ticket to server', err));
+
+    envelopeText.innerHTML = `
+      <p><strong>Subject: Maintenance Request — ${title} (${id})</strong></p>
+      <p>Hello,</p>
+      <p>This is a maintenance request submitted by ${name}, Unit ${unit}${building ? ', ' + building : ''}, on ${today}, logged as ticket ${id}.</p>
+      <p><strong>Category:</strong> ${category} &nbsp; <strong>Priority:</strong> ${urgencyLabel[urgency]}</p>
+      <p>${desc}</p>
+      ${currentPhoto ? `<p>1 photo attached.</p>` : ''}
+      <p><strong>Contact:</strong> ${phone}</p>
+      <p>Please confirm receipt and provide an expected timeline. This request will be automatically followed up on if there's no response within 3 days.</p>
+    `;
+
+    document.getElementById('title').value = '';
+    document.getElementById('category').selectedIndex = 0;
+    document.getElementById('desc').value = '';
+    document.querySelectorAll('.urgency-opt').forEach(o => o.classList.remove('checked'));
+    currentPhoto = null;
+    currentPhotoFile = null;
+    renderPhotoBox();
+    form.style.display = 'none';
+    confirmBlock.classList.add('show');
+    renderRequests();
+
+    sendStatus.className = 'send-status sending';
+    sendStatus.textContent = 'Sending to your test inbox…';
+
+    submitToEmailJS({
+      ticket_id: id,
+      filed_date: today,
+      title,
+      category,
+      priority: urgencyLabel[urgency],
+      description: desc,
+      name, unit, building, phone,
+      acknowledge_url: acknowledgeUrl,
+      photo_note: hadPhoto ? 'A photo was attached in the app (not included in this test email).' : 'No photo attached.'
+    }).then(() => {
+      sendStatus.className = 'send-status success';
+      sendStatus.textContent = 'Delivered to your test inbox.';
+    }).catch(err => {
+      console.error('EmailJS submission failed', err);
+      sendStatus.className = 'send-status failure';
+      sendStatus.textContent = "Couldn't deliver automatically — copy the message above and send it manually.";
+    });
+  });
+
+  document.getElementById('file-another').addEventListener('click', () => {
+    confirmBlock.classList.remove('show');
+    form.style.display = 'block';
+  });
+  document.getElementById('go-to-requests').addEventListener('click', () => {
+    confirmBlock.classList.remove('show');
+    form.style.display = 'block';
+    showTab('requests');
+  });
+
+  // ---------- Directory ----------
+  const directory = [
+    {name:'Brightside Cleaning Co.', cat:'Cleaning', blurb:'Standard and deep cleans, move-out ready on request.', social:'Recommended by 14 tenants nearby', phone:'+15550142001'},
+    {name:'Fresh Start Home Services', cat:'Cleaning', blurb:'Deep cleaning and sanitizing, flexible weekend slots.', social:'Recommended by 6 tenants nearby', phone:'+15550142002'},
+    {name:'Metro Movers', cat:'Moving', blurb:'Local moves, hourly rates, two-person crew minimum.', social:'Recommended by 21 tenants nearby', phone:'+15550142003'},
+    {name:'Two Hands Moving Crew', cat:'Moving', blurb:'Small apartment specialists, same-week booking.', social:'Recommended by 9 tenants nearby', phone:'+15550142004'},
+    {name:"Dave's Fix-It Handyman", cat:'Handyman', blurb:'General repairs, furniture assembly, mounting and fixtures.', social:'Recommended by 17 tenants nearby', phone:'+15550142005'},
+    {name:'Reliable Repairs Services', cat:'Handyman', blurb:'Licensed for small electrical and plumbing fixes.', social:'Recommended by 11 tenants nearby', phone:'+15550142006'}
+  ];
+
+  function renderDirectory(filter){
+    const list = document.getElementById('dir-list');
+    list.innerHTML = '';
+    directory.filter(d => filter === 'All' || d.cat === filter).forEach(d => {
+      const card = document.createElement('div');
+      card.className = 'dir-card';
+      card.innerHTML = `
+        <div class="dir-info">
+          <div class="dir-name">${d.name}</div>
+          <div class="dir-cat">${d.cat}</div>
+          <div class="dir-blurb">${d.blurb}</div>
+          <div class="dir-social">${d.social}</div>
+        </div>
+        <div class="dir-actions">
+          <a class="dir-btn" href="tel:${d.phone}">Call</a>
+          <a class="dir-btn" href="sms:${d.phone}">Text</a>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      renderDirectory(chip.dataset.cat);
+    });
+  });
+
+  document.getElementById('refresh-requests').addEventListener('click', async () => {
+    const btn = document.getElementById('refresh-requests');
+    const note = document.getElementById('refresh-note');
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+    await loadTicketsFromServer();
+    btn.disabled = false;
+    btn.textContent = 'Refresh status';
+    note.textContent = 'Updated just now';
+    setTimeout(() => { note.textContent = ''; }, 4000);
+  });
+
+  renderRequests();
+  renderDirectory('All');
+  loadTicketsFromServer();
+</script>
+</body>
+</html>
