@@ -295,6 +295,8 @@
   .dir-cat{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--carbon-blue);margin:2px 0 6px;}
   .dir-blurb{font-size:13.5px;color:var(--ink-soft);margin-bottom:4px;}
   .dir-social{font-size:12px;color:var(--ink-soft);font-style:italic;}
+  .dir-curated{display:inline-block;font-family:'Special Elite', monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;border:1.5px dashed var(--resolved-green);color:var(--resolved-green);border-radius:14px;padding:4px 12px;margin-bottom:6px;}
+  .dir-quote{font-size:12.5px;color:var(--ink);font-style:italic;margin-top:4px;}
   .dir-actions{display:flex;flex-direction:column;gap:6px;justify-content:center;}
   .dir-btn{
     font-size:12.5px;font-weight:600;border:1.5px solid var(--ink);border-radius:4px;
@@ -406,7 +408,7 @@
 
   <!-- DIRECTORY TAB -->
   <div class="panel" id="panel-directory">
-    <p class="dir-note">Contacts shared by other tenants. On Record doesn't book or take payment — you deal with them directly.</p>
+    <p class="dir-note">Local businesses near you, found via search — not personally vetted by tenants yet. On Record doesn't book or take payment; you deal with them directly.</p>
     <div class="chip-row" id="chip-row">
       <button class="chip active" data-cat="All">All</button>
       <button class="chip" data-cat="Cleaning">Cleaning</button>
@@ -683,6 +685,7 @@
       title,
       category,
       priority: urgencyLabel[urgency],
+      priority_color: ({routine:'#4B5A6B', soon:'#3F6690', urgent:'#B87F1F', emergency:'#B23A2E'})[urgency] || '#4B5A6B',
       description: desc,
       name, unit, building, phone,
       acknowledge_url: acknowledgeUrl,
@@ -708,13 +711,19 @@
   });
 
   // ---------- Directory ----------
+  // Real local businesses near LS9 0DS, found via search. Ratings/review counts are
+  // real (as of Aug 2026) — not personally vetted by tenants yet, and not affiliated
+  // with On Record in any way.
   const directory = [
-    {name:'Brightside Cleaning Co.', cat:'Cleaning', blurb:'Standard and deep cleans, move-out ready on request.', social:'Recommended by 14 tenants nearby', phone:'+15550142001'},
-    {name:'Fresh Start Home Services', cat:'Cleaning', blurb:'Deep cleaning and sanitizing, flexible weekend slots.', social:'Recommended by 6 tenants nearby', phone:'+15550142002'},
-    {name:'Metro Movers', cat:'Moving', blurb:'Local moves, hourly rates, two-person crew minimum.', social:'Recommended by 21 tenants nearby', phone:'+15550142003'},
-    {name:'Two Hands Moving Crew', cat:'Moving', blurb:'Small apartment specialists, same-week booking.', social:'Recommended by 9 tenants nearby', phone:'+15550142004'},
-    {name:"Dave's Fix-It Handyman", cat:'Handyman', blurb:'General repairs, furniture assembly, mounting and fixtures.', social:'Recommended by 17 tenants nearby', phone:'+15550142005'},
-    {name:'Reliable Repairs Services', cat:'Handyman', blurb:'Licensed for small electrical and plumbing fixes.', social:'Recommended by 11 tenants nearby', phone:'+15550142006'}
+    {name:'Inland Cleaning Service', cat:'Cleaning', blurb:'General and deep cleaning across Leeds, based close to Cross Green.', rating:'4.9★ (7 reviews)', phone:'+447572633059', curated:false, tenantNote:''},
+    {name:'PRN Cleaning Services', cat:'Cleaning', blurb:'Also based in LS9. Handles end-of-tenancy and general cleans.', rating:'5.0★ (8 reviews)', phone:'+441135340046', curated:false, tenantNote:''},
+    {name:'Ms Broom - Cleaning Services', cat:'Cleaning', blurb:'Smaller local cleaning service with easy online booking.', rating:'5.0★ (2 reviews)', phone:'+447435201503', curated:false, tenantNote:''},
+    {name:'S. Bretherick Handyman Services', cat:'Handyman', blurb:'General repairs, fittings, and installations. The most established option nearby.', rating:'5.0★ (108 reviews)', phone:'+447958250217', curated:false, tenantNote:''},
+    {name:'Hudson Handyman Services', cat:'Handyman', blurb:'General repairs, flatpack assembly, and fittings.', rating:'5.0★ (77 reviews)', phone:'+447435668571', curated:false, tenantNote:''},
+    {name:'Alston Handyman', cat:'Handyman', blurb:'General repairs and fittings, flexible scheduling.', rating:'5.0★ (16 reviews)', phone:'+447421457971', curated:false, tenantNote:''},
+    {name:'Deans Transport and Removals', cat:'Moving', blurb:'Also based in LS9. Local moves and furniture transport.', rating:'5.0★ (25 reviews)', phone:'+447375910123', curated:false, tenantNote:''},
+    {name:'White Rose Removals', cat:'Moving', blurb:'Large, well-established removals company covering all of Leeds.', rating:'5.0★ (1,146 reviews)', phone:'+441134680889', curated:false, tenantNote:''},
+    {name:'GSR Movers', cat:'Moving', blurb:'Local moves, storage, and transport.', rating:'4.9★ (69 reviews)', phone:'+447540050288', curated:false, tenantNote:''}
   ];
 
   function renderDirectory(filter){
@@ -728,7 +737,10 @@
           <div class="dir-name">${d.name}</div>
           <div class="dir-cat">${d.cat}</div>
           <div class="dir-blurb">${d.blurb}</div>
-          <div class="dir-social">${d.social}</div>
+          ${d.curated
+            ? `<div class="dir-curated">✓ Recommended by tenants</div>${d.tenantNote ? `<div class="dir-quote">"${d.tenantNote}"</div>` : ''}`
+            : `<div class="dir-social">${d.rating} on Google — not personally vetted</div>`
+          }
         </div>
         <div class="dir-actions">
           <a class="dir-btn" href="tel:${d.phone}">Call</a>
