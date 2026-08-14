@@ -304,6 +304,30 @@
   }
   .dir-btn:hover{background:var(--paper-2);}
   .dir-note{font-size:12.5px;color:var(--ink-soft);margin:-6px 0 18px;}
+
+  /* Condition report */
+  .type-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .type-opt{
+    flex:1;min-width:100px;
+    border:1.5px solid var(--line);
+    border-radius:4px;
+    padding:10px 8px;
+    text-align:center;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    background:var(--card);
+    color:var(--ink-soft);
+  }
+  .type-opt input{display:none;}
+  .type-opt.checked{border-color:var(--carbon-blue);color:var(--carbon-blue);background:#EAF1F7;}
+  .area-card{border:1.5px solid var(--line);border-radius:6px;padding:14px 16px;margin-bottom:12px;background:var(--card);}
+  .area-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .area-room{font-weight:600;font-size:14.5px;}
+  .area-note{font-size:13px;color:var(--ink-soft);margin-top:4px;line-height:1.5;}
+  .area-remove{background:none;border:none;color:var(--stamp-red);font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap;}
+  .area-thumb{width:100%;max-width:160px;border-radius:4px;border:1px solid var(--line);margin-top:8px;display:block;}
+  .report-card{background:var(--card);border:1.5px solid var(--line);border-radius:6px;padding:16px 18px;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -316,6 +340,7 @@
     <button class="tab-btn active" data-tab="report">File a Request</button>
     <button class="tab-btn" data-tab="requests">My Requests</button>
     <button class="tab-btn" data-tab="directory">Find Help</button>
+    <button class="tab-btn" data-tab="condition">Condition Report</button>
   </div>
 
   <!-- REPORT TAB -->
@@ -417,12 +442,59 @@
     </div>
     <div id="dir-list"></div>
   </div>
+
+  <!-- CONDITION REPORT TAB -->
+  <div class="panel" id="panel-condition">
+    <p class="dir-note">Document your apartment's condition at move-in or move-out — useful evidence if there's ever a dispute over your deposit.</p>
+
+    <div id="past-reports-list"></div>
+
+    <div id="report-builder">
+      <div class="form-eyebrow">Report Type</div>
+      <div class="type-row" id="report-type-row">
+        <label class="type-opt"><input type="radio" name="report-type" value="movein">Move-In</label>
+        <label class="type-opt"><input type="radio" name="report-type" value="moveout">Move-Out</label>
+      </div>
+
+      <div class="form-eyebrow">Add an Area</div>
+      <label for="area-name">Room / area</label>
+      <input type="text" id="area-name" placeholder="e.g. Kitchen, Living Room, Bathroom">
+
+      <label for="area-note">Condition notes</label>
+      <textarea id="area-note" placeholder="Describe the condition — marks, damage, cleanliness, anything notable."></textarea>
+
+      <label>Add a photo (optional)</label>
+      <input type="file" accept="image/*" capture="environment" id="area-photo-input" style="display:none;">
+      <div class="photo-box" id="area-photo-box">
+        Attach a Photo
+        <span class="hint">Opens your camera on mobile, or choose a file</span>
+      </div>
+
+      <div class="form-error" id="area-form-error"></div>
+      <button type="button" class="btn-secondary" id="add-area-btn" style="margin-top:16px;width:100%;">Add This Area</button>
+
+      <div id="report-entries-list" style="margin-top:20px;"></div>
+
+      <button type="button" class="submit-btn" id="finish-report-btn" style="display:none;">Finish Report</button>
+    </div>
+
+    <div class="confirm" id="report-confirm-block">
+      <label style="margin-top:24px;">Report Saved</label>
+      <div class="envelope">
+        <div class="envelope-label">Your condition report</div>
+        <div class="envelope-body" id="report-summary-text"></div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-secondary" id="start-another-report">Start Another Report</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
   // ---------- Tabs ----------
   const tabBtns = document.querySelectorAll('.tab-btn');
-  const panels = { report: document.getElementById('panel-report'), requests: document.getElementById('panel-requests'), directory: document.getElementById('panel-directory') };
+  const panels = { report: document.getElementById('panel-report'), requests: document.getElementById('panel-requests'), directory: document.getElementById('panel-directory'), condition: document.getElementById('panel-condition') };
   function showTab(name){
     tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     Object.entries(panels).forEach(([k,p]) => p.classList.toggle('active', k === name));
@@ -770,8 +842,180 @@
     setTimeout(() => { note.textContent = ''; }, 4000);
   });
 
+  // ---------- Condition Report ----------
+  const areaPhotoInput = document.getElementById('area-photo-input');
+  const areaPhotoBox = document.getElementById('area-photo-box');
+  let currentAreaPhoto = null;
+
+  function renderAreaPhotoBox(){
+    if(currentAreaPhoto){
+      areaPhotoBox.classList.add('filled');
+      areaPhotoBox.innerHTML = `
+        <img class="photo-thumb" src="${currentAreaPhoto}" alt="Attached photo">
+        <span class="photo-meta">Photo attached</span>
+        <button type="button" class="photo-remove" id="area-photo-remove">Remove</button>
+      `;
+      document.getElementById('area-photo-remove').addEventListener('click', e => {
+        e.stopPropagation();
+        currentAreaPhoto = null;
+        areaPhotoInput.value = '';
+        renderAreaPhotoBox();
+      });
+    } else {
+      areaPhotoBox.classList.remove('filled');
+      areaPhotoBox.innerHTML = `Attach a Photo<span class="hint">Opens your camera on mobile, or choose a file</span>`;
+    }
+  }
+  areaPhotoBox.addEventListener('click', () => {
+    if(!currentAreaPhoto) areaPhotoInput.click();
+  });
+  areaPhotoInput.addEventListener('change', () => {
+    const file = areaPhotoInput.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      currentAreaPhoto = reader.result;
+      renderAreaPhotoBox();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.querySelectorAll('.type-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.type-opt').forEach(o => o.classList.remove('checked'));
+      opt.classList.add('checked');
+      opt.querySelector('input').checked = true;
+    });
+  });
+
+  function generateReportId(){
+    const time = Date.now().toString(36).toUpperCase().slice(-4);
+    const rand = Math.random().toString(36).slice(2, 4).toUpperCase();
+    return 'CR-' + time + rand;
+  }
+  const reportTypeLabel = {movein:'Move-In', moveout:'Move-Out'};
+
+  let currentReportEntries = [];
+  let conditionReports = [];
+
+  function renderReportEntries(){
+    const list = document.getElementById('report-entries-list');
+    const finishBtn = document.getElementById('finish-report-btn');
+    list.innerHTML = '';
+    currentReportEntries.forEach((entry, i) => {
+      const card = document.createElement('div');
+      card.className = 'area-card';
+      card.innerHTML = `
+        <div class="area-card-top">
+          <div>
+            <div class="area-room">${entry.room}</div>
+            <div class="area-note">${entry.note}</div>
+          </div>
+          <button type="button" class="area-remove" data-index="${i}">Remove</button>
+        </div>
+        ${entry.photo ? `<img class="area-thumb" src="${entry.photo}" alt="Photo of ${entry.room}">` : ''}
+      `;
+      card.querySelector('.area-remove').addEventListener('click', () => {
+        currentReportEntries.splice(i, 1);
+        renderReportEntries();
+      });
+      list.appendChild(card);
+    });
+    finishBtn.style.display = currentReportEntries.length ? 'block' : 'none';
+  }
+
+  const areaFormError = document.getElementById('area-form-error');
+  document.getElementById('add-area-btn').addEventListener('click', () => {
+    const room = document.getElementById('area-name').value.trim();
+    const note = document.getElementById('area-note').value.trim();
+    if(!room || !note){
+      areaFormError.textContent = 'Please fill in the room/area and a condition note before adding.';
+      areaFormError.classList.add('show');
+      return;
+    }
+    areaFormError.classList.remove('show');
+    currentReportEntries.push({ room, note, photo: currentAreaPhoto });
+    document.getElementById('area-name').value = '';
+    document.getElementById('area-note').value = '';
+    currentAreaPhoto = null;
+    renderAreaPhotoBox();
+    renderReportEntries();
+  });
+
+  function renderPastReports(){
+    const list = document.getElementById('past-reports-list');
+    list.innerHTML = '';
+    conditionReports.forEach(r => {
+      const card = document.createElement('div');
+      card.className = 'report-card';
+      card.innerHTML = `
+        <div class="ticket-top">
+          <span class="ticket-id">${r.id}</span>
+          <span class="ticket-date">${r.date}</span>
+        </div>
+        <div class="stamp-row" style="margin-top:10px;">
+          <span class="stamp st-filed">${reportTypeLabel[r.type]}</span>
+          <span class="stamp urg-routine">${r.areas.length} area${r.areas.length === 1 ? '' : 's'}</span>
+        </div>
+        <div class="perf"></div>
+        <button class="trail-toggle">Show areas (${r.areas.length})</button>
+        <div class="trail">
+          ${r.areas.map(a => `<div class="trail-item"><span class="trail-date">${a.room}</span><span class="trail-text">${a.note}</span></div>`).join('')}
+        </div>
+      `;
+      const toggle = card.querySelector('.trail-toggle');
+      const trail = card.querySelector('.trail');
+      toggle.addEventListener('click', () => {
+        trail.classList.toggle('open');
+        toggle.textContent = (trail.classList.contains('open') ? 'Hide areas (' : 'Show areas (') + r.areas.length + ')';
+      });
+      list.appendChild(card);
+    });
+  }
+
+  const reportBuilder = document.getElementById('report-builder');
+  const reportConfirmBlock = document.getElementById('report-confirm-block');
+  const reportSummaryText = document.getElementById('report-summary-text');
+
+  document.getElementById('finish-report-btn').addEventListener('click', () => {
+    const typeInput = document.querySelector('input[name=report-type]:checked');
+    if(!typeInput){
+      areaFormError.textContent = 'Please choose Move-In or Move-Out before finishing the report.';
+      areaFormError.classList.add('show');
+      return;
+    }
+    areaFormError.classList.remove('show');
+    const type = typeInput.value;
+    const id = generateReportId();
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const report = { id, type, date: today, areas: currentReportEntries.slice() };
+    conditionReports.unshift(report);
+    renderPastReports();
+
+    reportSummaryText.innerHTML = `
+      <p><strong>${reportTypeLabel[type]} Condition Report (${id})</strong></p>
+      <p>Filed ${today} — ${report.areas.length} area${report.areas.length === 1 ? '' : 's'} documented.</p>
+      ${report.areas.map(a => `<p><strong>${a.room}:</strong> ${a.note}</p>`).join('')}
+    `;
+
+    currentReportEntries = [];
+    renderReportEntries();
+    document.querySelectorAll('.type-opt').forEach(o => o.classList.remove('checked'));
+    document.querySelectorAll('input[name=report-type]').forEach(r => r.checked = false);
+
+    reportBuilder.style.display = 'none';
+    reportConfirmBlock.classList.add('show');
+  });
+
+  document.getElementById('start-another-report').addEventListener('click', () => {
+    reportConfirmBlock.classList.remove('show');
+    reportBuilder.style.display = 'block';
+  });
+
   renderRequests();
   renderDirectory('All');
+  renderPastReports();
   loadTicketsFromServer();
 </script>
 </body>
