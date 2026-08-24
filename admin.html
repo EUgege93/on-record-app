@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>On Record — Property Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1E2A3A; --ink-soft:#4B5A6B; --paper:#FAF7EF; --paper-2:#F1EBDD;
+    --card:#FFFDF8; --stamp-red:#B23A2E; --carbon-blue:#3F6690; --resolved-green:#4B7A5B; --line:#D8CFB8;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans', sans-serif;min-height:100vh;}
+  .app{max-width:560px;margin:0 auto;padding:28px 20px 60px;}
+  .wordmark{font-family:'Special Elite', monospace;font-size:15px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:4px;}
+  h1{font-family:'Special Elite', monospace;font-size:24px;font-weight:400;margin:0 0 6px;}
+  .warn-note{background:#FBEAE8;color:var(--stamp-red);font-size:13px;font-weight:600;padding:12px 14px;border-radius:4px;margin:16px 0 24px;line-height:1.5;}
+  label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);margin:16px 0 6px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text], textarea{width:100%;font-size:14.5px;padding:10px 12px;border:1.5px solid var(--line);border-radius:4px;background:var(--card);color:var(--ink);font-family:inherit;}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .btn{margin-top:20px;width:100%;background:var(--ink);color:var(--paper);border:none;padding:13px;font-size:14.5px;font-weight:600;border-radius:4px;cursor:pointer;}
+  .btn:hover{background:var(--carbon-blue);}
+  .btn-secondary{margin-top:10px;width:100%;background:none;border:1.5px solid var(--ink);color:var(--ink);padding:11px;border-radius:4px;font-weight:600;font-size:13.5px;cursor:pointer;}
+  .status{font-size:13px;font-weight:600;margin-top:14px;padding:10px 12px;border-radius:4px;display:none;}
+  .status.show{display:block;}
+  .status.success{background:#EAF3EC;color:var(--resolved-green);}
+  .status.failure{background:#FBEAE8;color:var(--stamp-red);}
+  .result{background:var(--card);border:1.5px solid var(--line);border-radius:6px;padding:16px 18px;margin-top:16px;font-family:'IBM Plex Mono', monospace;font-size:12.5px;white-space:pre-wrap;display:none;}
+  .result.show{display:block;}
+  hr{border:none;border-top:1.5px dashed var(--line);margin:32px 0;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="wordmark">On Record</div>
+  <h1>Property Admin</h1>
+  <div class="warn-note">This page has no password protection. Anyone with this link can create or overwrite property records. Do not share it publicly.</div>
+
+  <label for="p-id">Property ID (URL slug)</label>
+  <input type="text" id="p-id" placeholder="e.g. cross-green-quarter">
+  <div class="hint">Lowercase, no spaces — becomes part of the property's link: yoursite.netlify.app/?property=this-id</div>
+
+  <label for="p-name">Property name</label>
+  <input type="text" id="p-name" placeholder="e.g. Cross Green Quarter">
+
+  <label for="p-email">Property manager contact email</label>
+  <input type="text" id="p-email" placeholder="Where maintenance request emails should be sent">
+
+  <label for="p-buildings">Buildings / blocks</label>
+  <textarea id="p-buildings" rows="3" placeholder="One per line, e.g.&#10;Block A&#10;Block B"></textarea>
+
+  <button type="button" class="btn" id="save-btn">Save Property</button>
+  <button type="button" class="btn-secondary" id="load-btn">Look Up Existing Property by ID</button>
+
+  <div class="status" id="status"></div>
+  <div class="result" id="result"></div>
+
+  <hr>
+  <p class="hint">After saving a property, its tenant-facing link is: <strong>yoursite.netlify.app/?property=the-id-you-entered</strong>. Generate a QR code for that link to give tenants easy access.</p>
+</div>
+
+<script>
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+
+  function showStatus(text, ok){
+    statusEl.textContent = text;
+    statusEl.className = 'status show ' + (ok ? 'success' : 'failure');
+  }
+
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    const id = document.getElementById('p-id').value.trim().toLowerCase().replace(/\s+/g, '-');
+    const name = document.getElementById('p-name').value.trim();
+    const contactEmail = document.getElementById('p-email').value.trim();
+    const buildings = document.getElementById('p-buildings').value
+      .split('\n').map(b => b.trim()).filter(Boolean);
+
+    if(!id || !name || !contactEmail){
+      showStatus('Property ID, name, and contact email are all required.', false);
+      return;
+    }
+
+    try{
+      const res = await fetch('/.netlify/functions/create-property', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name, contactEmail, buildings })
+      });
+      const data = await res.json();
+      if(data.ok){
+        showStatus('Saved. Tenant link: ' + window.location.origin + '/?property=' + id, true);
+        resultEl.textContent = JSON.stringify(data.property, null, 2);
+        resultEl.classList.add('show');
+      } else {
+        showStatus('Error: ' + (data.error || 'unknown error'), false);
+      }
+    }catch(err){
+      showStatus('Network error: ' + err.message, false);
+    }
+  });
+
+  document.getElementById('load-btn').addEventListener('click', async () => {
+    const id = document.getElementById('p-id').value.trim().toLowerCase().replace(/\s+/g, '-');
+    if(!id){
+      showStatus('Enter a Property ID above first.', false);
+      return;
+    }
+    try{
+      const res = await fetch('/.netlify/functions/get-property?id=' + encodeURIComponent(id));
+      const data = await res.json();
+      if(data.ok){
+        document.getElementById('p-name').value = data.property.name || '';
+        document.getElementById('p-email').value = data.property.contactEmail || '';
+        document.getElementById('p-buildings').value = (data.property.buildings || []).join('\n');
+        showStatus('Loaded existing property.', true);
+        resultEl.textContent = JSON.stringify(data.property, null, 2);
+        resultEl.classList.add('show');
+      } else {
+        showStatus('Not found: ' + (data.error || 'no property with that ID yet'), false);
+      }
+    }catch(err){
+      showStatus('Network error: ' + err.message, false);
+    }
+  });
+</script>
+</body>
+</html>
