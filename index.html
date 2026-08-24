@@ -359,10 +359,6 @@
           <label for="tenant-building">Building / block <span class="optional">(optional)</span></label>
           <select id="tenant-building">
             <option value="">Select...</option>
-            <option>Cross Green Quarter - A</option>
-            <option>Cross Green Quarter - B</option>
-            <option>Cross Green Quarter - C</option>
-            <option>Cross Green Quarter - D</option>
           </select>
         </div>
       </div>
@@ -424,16 +420,37 @@
 
   <!-- REQUESTS TAB -->
   <div class="panel" id="panel-requests">
-    <div class="refresh-row">
-      <button class="refresh-btn" id="refresh-requests">Refresh status</button>
-      <span class="refresh-note" id="refresh-note"></span>
+    <div id="requests-lookup" style="display:none;">
+      <p class="dir-note">Enter the phone number you used to file a request, to find your requests on this device.</p>
+      <label for="lookup-phone">Phone number</label>
+      <input type="tel" id="lookup-phone" placeholder="Phone number">
+      <div class="form-error" id="lookup-form-error"></div>
+      <button type="button" class="btn-secondary" id="lookup-btn" style="margin-top:16px;width:100%;">Find My Requests</button>
     </div>
-    <div id="requests-list"></div>
+    <div id="requests-main" style="display:none;">
+      <div class="refresh-row">
+        <button class="refresh-btn" id="refresh-requests">Refresh status</button>
+        <span class="refresh-note" id="refresh-note"></span>
+      </div>
+      <div id="requests-list"></div>
+    </div>
+  </div>
+
+  <!-- DIRECTORY TAB -->
+  <div class="panel" id="panel-directory">
+    <p class="dir-note">Local businesses near you, found via search — not personally vetted by tenants yet. On Record doesn't book or take payment; you deal with them directly.</p>
+    <div class="chip-row" id="chip-row">
+      <button class="chip active" data-cat="All">All</button>
+      <button class="chip" data-cat="Cleaning">Cleaning</button>
+      <button class="chip" data-cat="Moving">Moving</button>
+      <button class="chip" data-cat="Handyman">Handyman</button>
+    </div>
+    <div id="dir-list"></div>
   </div>
 
   <!-- CONDITION REPORT TAB -->
   <div class="panel" id="panel-condition">
-    <p class="dir-note">Document your apartment's condition at move-in or move-out — useful evidence if there's ever a dispute over your deposit.</p>
+    <p class="dir-note">Document your apartment's condition at move-in or move-out \u2014 useful evidence if there's ever a dispute over your deposit.</p>
 
     <div id="past-reports-list"></div>
 
@@ -449,7 +466,7 @@
       <input type="text" id="area-name" placeholder="e.g. Kitchen, Living Room, Bathroom">
 
       <label for="area-note">Condition notes</label>
-      <textarea id="area-note" placeholder="Describe the condition — marks, damage, cleanliness, anything notable."></textarea>
+      <textarea id="area-note" placeholder="Describe the condition \u2014 marks, damage, cleanliness, anything notable."></textarea>
 
       <label>Add a photo (optional)</label>
       <input type="file" accept="image/*" capture="environment" id="area-photo-input" style="display:none;">
@@ -476,18 +493,6 @@
         <button class="btn-secondary" id="start-another-report">Start Another Report</button>
       </div>
     </div>
-  </div>
-
-  <!-- DIRECTORY TAB -->
-  <div class="panel" id="panel-directory">
-    <p class="dir-note">Local businesses near you, found via search — not personally vetted by tenants yet. On Record doesn't book or take payment; you deal with them directly.</p>
-    <div class="chip-row" id="chip-row">
-      <button class="chip active" data-cat="All">All</button>
-      <button class="chip" data-cat="Cleaning">Cleaning</button>
-      <button class="chip" data-cat="Moving">Moving</button>
-      <button class="chip" data-cat="Handyman">Handyman</button>
-    </div>
-    <div id="dir-list"></div>
   </div>
 </div>
 
@@ -554,30 +559,69 @@
   });
 
   // ---------- Tenant profile (remembers name/unit/phone across visits) ----------
-  async function loadProfile(){
-    if(!window.storage) return; // storage API not available in this context, skip silently
+  // ---------- Property (which building/property this session belongs to) ----------
+  const DEFAULT_PROPERTY_ID = 'cross-green-quarter';
+  const DEFAULT_PROPERTY_FALLBACK = {
+    id: DEFAULT_PROPERTY_ID,
+    name: 'Cross Green Quarter',
+    contactEmail: null,
+    buildings: ['Cross Green Quarter - A', 'Cross Green Quarter - B', 'Cross Green Quarter - C', 'Cross Green Quarter - D']
+  };
+  let currentProperty = { ...DEFAULT_PROPERTY_FALLBACK };
+
+  function resolvePropertyId(){
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('property');
+    if(fromUrl){
+      try{ localStorage.setItem('onrecord-property', fromUrl); }catch(e){}
+      return fromUrl;
+    }
+    try{ return localStorage.getItem('onrecord-property') || DEFAULT_PROPERTY_ID; }
+    catch(e){ return DEFAULT_PROPERTY_ID; }
+  }
+
+  function populateBuildingOptions(){
+    const select = document.getElementById('tenant-building');
+    const keepValue = select.value;
+    select.innerHTML = '<option value="">Select...</option>' +
+      currentProperty.buildings.map(b => `<option${b === keepValue ? ' selected' : ''}>${b}</option>`).join('');
+  }
+
+  async function loadProperty(){
+    const id = resolvePropertyId();
     try{
-      const res = await window.storage.get('tenant-profile', false);
-      if(res && res.value){
-        const p = JSON.parse(res.value);
-        document.getElementById('tenant-name').value = p.name || '';
-        document.getElementById('tenant-unit').value = p.unit || '';
-        document.getElementById('tenant-building').value = p.building || '';
-        document.getElementById('tenant-phone').value = p.phone || '';
+      const res = await fetch('/.netlify/functions/get-property?id=' + encodeURIComponent(id));
+      const data = await res.json();
+      if(data.ok && data.property){
+        currentProperty = data.property;
+      } else {
+        currentProperty = { ...DEFAULT_PROPERTY_FALLBACK, id };
       }
-    }catch(e){
-      // no saved profile yet — that's expected on a first visit
+    }catch(err){
+      console.error('Could not load property config, using fallback', err);
+      currentProperty = { ...DEFAULT_PROPERTY_FALLBACK, id };
     }
+    populateBuildingOptions();
   }
-  async function saveProfile(profile){
-    if(!window.storage) return;
+
+  // ---------- Tenant identity (remembers name/unit/phone on this device) ----------
+  function getIdentity(){
     try{
-      await window.storage.set('tenant-profile', JSON.stringify(profile), false);
-    }catch(e){
-      console.error('Could not save tenant profile', e);
-    }
+      const raw = localStorage.getItem('onrecord-identity');
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
   }
-  loadProfile();
+  function setIdentity(identity){
+    try{ localStorage.setItem('onrecord-identity', JSON.stringify(identity)); }catch(e){}
+  }
+  function applyIdentityToForm(){
+    const id = getIdentity();
+    if(!id) return;
+    document.getElementById('tenant-name').value = id.name || '';
+    document.getElementById('tenant-unit').value = id.unit || '';
+    document.getElementById('tenant-building').value = id.building || '';
+    document.getElementById('tenant-phone').value = id.phone || '';
+  }
 
   // ---------- Data ----------
   function generateTicketId(){
@@ -590,9 +634,25 @@
 
   let requests = [];
 
+  function showRequestsLookup(){
+    document.getElementById('requests-lookup').style.display = 'block';
+    document.getElementById('requests-main').style.display = 'none';
+  }
+  function showRequestsMain(){
+    document.getElementById('requests-lookup').style.display = 'none';
+    document.getElementById('requests-main').style.display = 'block';
+  }
+
   async function loadTicketsFromServer(){
+    const identity = getIdentity();
+    if(!identity || !identity.phone){
+      showRequestsLookup();
+      return;
+    }
+    showRequestsMain();
     try{
-      const res = await fetch('/.netlify/functions/get-tickets');
+      const url = '/.netlify/functions/get-tickets?property=' + encodeURIComponent(currentProperty.id) + '&phone=' + encodeURIComponent(identity.phone);
+      const res = await fetch(url);
       const data = await res.json();
       if(data.ok && Array.isArray(data.tickets)){
         requests = data.tickets;
@@ -714,13 +774,13 @@
       trail:[{date:today, text:'Request filed and sent to your property manager via email.'}]
     });
 
-    saveProfile({name, unit, building, phone});
+    setIdentity({name, unit, building, phone});
 
     fetch('/.netlify/functions/create-ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        id, title, category, urgency, filedDate: today, description: desc,
+        id, propertyId: currentProperty.id, title, category, urgency, filedDate: today, description: desc,
         name, unit, building, phone,
         photoNote: hadPhoto ? 'A photo was attached in the app (not included in this test email).' : 'No photo attached.'
       })
@@ -761,6 +821,7 @@
       description: desc,
       name, unit, building, phone,
       acknowledge_url: acknowledgeUrl,
+      to_email: currentProperty.contactEmail || '',
       photo_note: hadPhoto ? 'A photo was attached in the app (not included in this test email).' : 'No photo attached.'
     }).then(() => {
       sendStatus.className = 'send-status success';
@@ -787,15 +848,15 @@
   // real (as of Aug 2026) — not personally vetted by tenants yet, and not affiliated
   // with On Record in any way.
   const directory = [
-    {name:'Inland Cleaning Service', cat:'Cleaning', blurb:'General and deep cleaning across Leeds, based close to Cross Green.', rating:'4.9★ (7 reviews)', phone:'+447572633059', curated:false, tenantNote:''},
-    {name:'PRN Cleaning Services', cat:'Cleaning', blurb:'Also based in LS9. Handles end-of-tenancy and general cleans.', rating:'5.0★ (8 reviews)', phone:'+441135340046', curated:false, tenantNote:''},
-    {name:'Ms Broom - Cleaning Services', cat:'Cleaning', blurb:'Smaller local cleaning service with easy online booking.', rating:'5.0★ (2 reviews)', phone:'+447435201503', curated:false, tenantNote:''},
-    {name:'S. Bretherick Handyman Services', cat:'Handyman', blurb:'General repairs, fittings, and installations. The most established option nearby.', rating:'5.0★ (108 reviews)', phone:'+447958250217', curated:false, tenantNote:''},
-    {name:'Hudson Handyman Services', cat:'Handyman', blurb:'General repairs, flatpack assembly, and fittings.', rating:'5.0★ (77 reviews)', phone:'+447435668571', curated:false, tenantNote:''},
-    {name:'Alston Handyman', cat:'Handyman', blurb:'General repairs and fittings, flexible scheduling.', rating:'5.0★ (16 reviews)', phone:'+447421457971', curated:false, tenantNote:''},
-    {name:'Deans Transport and Removals', cat:'Moving', blurb:'Also based in LS9. Local moves and furniture transport.', rating:'5.0★ (25 reviews)', phone:'+447375910123', curated:false, tenantNote:''},
-    {name:'White Rose Removals', cat:'Moving', blurb:'Large, well-established removals company covering all of Leeds.', rating:'5.0★ (1,146 reviews)', phone:'+441134680889', curated:false, tenantNote:''},
-    {name:'GSR Movers', cat:'Moving', blurb:'Local moves, storage, and transport.', rating:'4.9★ (69 reviews)', phone:'+447540050288', curated:false, tenantNote:''}
+    {name:'Inland Cleaning Service', cat:'Cleaning', blurb:'General and deep cleaning across Leeds, based close to Cross Green.', rating:'4.9\u2605 (7 reviews)', phone:'+447572633059', curated:false, tenantNote:''},
+    {name:'PRN Cleaning Services', cat:'Cleaning', blurb:'Also based in LS9. Handles end-of-tenancy and general cleans.', rating:'5.0\u2605 (8 reviews)', phone:'+441135340046', curated:false, tenantNote:''},
+    {name:'Ms Broom - Cleaning Services', cat:'Cleaning', blurb:'Smaller local cleaning service with easy online booking.', rating:'5.0\u2605 (2 reviews)', phone:'+447435201503', curated:false, tenantNote:''},
+    {name:'S. Bretherick Handyman Services', cat:'Handyman', blurb:'General repairs, fittings, and installations. The most established option nearby.', rating:'5.0\u2605 (108 reviews)', phone:'+447958250217', curated:false, tenantNote:''},
+    {name:'Hudson Handyman Services', cat:'Handyman', blurb:'General repairs, flatpack assembly, and fittings.', rating:'5.0\u2605 (77 reviews)', phone:'+447435668571', curated:false, tenantNote:''},
+    {name:'Alston Handyman', cat:'Handyman', blurb:'General repairs and fittings, flexible scheduling.', rating:'5.0\u2605 (16 reviews)', phone:'+447421457971', curated:false, tenantNote:''},
+    {name:'Deans Transport and Removals', cat:'Moving', blurb:'Also based in LS9. Local moves and furniture transport.', rating:'5.0\u2605 (25 reviews)', phone:'+447375910123', curated:false, tenantNote:''},
+    {name:'White Rose Removals', cat:'Moving', blurb:'Large, well-established removals company covering all of Leeds.', rating:'5.0\u2605 (1,146 reviews)', phone:'+441134680889', curated:false, tenantNote:''},
+    {name:'GSR Movers', cat:'Moving', blurb:'Local moves, storage, and transport.', rating:'4.9\u2605 (69 reviews)', phone:'+447540050288', curated:false, tenantNote:''}
   ];
 
   function renderDirectory(filter){
@@ -810,8 +871,8 @@
           <div class="dir-cat">${d.cat}</div>
           <div class="dir-blurb">${d.blurb}</div>
           ${d.curated
-            ? `<div class="dir-curated">✓ Recommended by tenants</div>${d.tenantNote ? `<div class="dir-quote">"${d.tenantNote}"</div>` : ''}`
-            : `<div class="dir-social">${d.rating} on Google — not personally vetted</div>`
+            ? `<div class="dir-curated">\u2713 Recommended by tenants</div>${d.tenantNote ? `<div class="dir-quote">\u201c${d.tenantNote}\u201d</div>` : ''}`
+            : `<div class="dir-social">${d.rating} on Google \u2014 not personally vetted</div>`
           }
         </div>
         <div class="dir-actions">
@@ -840,6 +901,21 @@
     btn.textContent = 'Refresh status';
     note.textContent = 'Updated just now';
     setTimeout(() => { note.textContent = ''; }, 4000);
+  });
+
+  document.getElementById('lookup-btn').addEventListener('click', async () => {
+    const phoneInput = document.getElementById('lookup-phone');
+    const lookupError = document.getElementById('lookup-form-error');
+    const phone = phoneInput.value.trim();
+    if(!phone){
+      lookupError.textContent = 'Please enter the phone number you used to file a request.';
+      lookupError.classList.add('show');
+      return;
+    }
+    lookupError.classList.remove('show');
+    const existing = getIdentity() || {};
+    setIdentity({ ...existing, phone });
+    await loadTicketsFromServer();
   });
 
   // ---------- Condition Report ----------
@@ -995,7 +1071,7 @@
 
     reportSummaryText.innerHTML = `
       <p><strong>${reportTypeLabel[type]} Condition Report (${id})</strong></p>
-      <p>Filed ${today} — ${report.areas.length} area${report.areas.length === 1 ? '' : 's'} documented.</p>
+      <p>Filed ${today} \u2014 ${report.areas.length} area${report.areas.length === 1 ? '' : 's'} documented.</p>
       ${report.areas.map(a => `<p><strong>${a.room}:</strong> ${a.note}</p>`).join('')}
     `;
 
@@ -1016,7 +1092,12 @@
   renderRequests();
   renderDirectory('All');
   renderPastReports();
-  loadTicketsFromServer();
+
+  (async () => {
+    await loadProperty();
+    applyIdentityToForm();
+    loadTicketsFromServer();
+  })();
 </script>
 </body>
 </html>
