@@ -497,6 +497,19 @@
 </div>
 
 <script>
+  // ---------- Security: escape user-typed text before inserting into the page ----------
+  // Without this, a tenant could embed a hidden script in any field (name, title,
+  // description, etc.) and have it run as real code in the browser of anyone who
+  // later views that ticket — including the property manager.
+  function escapeHtml(value){
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // ---------- Tabs ----------
   const tabBtns = document.querySelectorAll('.tab-btn');
   const panels = { report: document.getElementById('panel-report'), requests: document.getElementById('panel-requests'), directory: document.getElementById('panel-directory'), condition: document.getElementById('panel-condition') };
@@ -585,7 +598,7 @@
     const select = document.getElementById('tenant-building');
     const keepValue = select.value;
     select.innerHTML = '<option value="">Select...</option>' +
-      currentProperty.buildings.map(b => `<option${b === keepValue ? ' selected' : ''}>${b}</option>`).join('');
+      currentProperty.buildings.map(b => `<option${b === keepValue ? ' selected' : ''}>${escapeHtml(b)}</option>`).join('');
   }
 
   async function loadProperty(){
@@ -675,11 +688,11 @@
           <span class="ticket-id">${r.id}</span>
           <span class="ticket-date">Filed ${r.filedDate}</span>
         </div>
-        <div class="ticket-cat">${r.category}</div>
-        <div class="ticket-title">${r.title}</div>
-        <div class="ticket-filer">Filed by ${r.name} — Unit ${r.unit}${r.building ? ', ' + r.building : ''} — ${r.phone}</div>
+        <div class="ticket-cat">${escapeHtml(r.category)}</div>
+        <div class="ticket-title">${escapeHtml(r.title)}</div>
+        <div class="ticket-filer">Filed by ${escapeHtml(r.name)} — Unit ${escapeHtml(r.unit)}${r.building ? ', ' + escapeHtml(r.building) : ''} — ${escapeHtml(r.phone)}</div>
         ${r.photo ? `<img class="ticket-photo" src="${r.photo}" alt="Photo attached to ${r.id}">` : ''}
-        <div class="ticket-desc">${r.description}</div>
+        <div class="ticket-desc">${escapeHtml(r.description)}</div>
         <div class="stamp-row">
           <span class="stamp urg-${r.urgency}">${urgencyLabel[r.urgency]}</span>
           <span class="stamp st-${r.status}">${statusLabel[r.status]}</span>
@@ -788,13 +801,13 @@
     }).catch(err => console.error('Could not persist ticket to server', err));
 
     envelopeText.innerHTML = `
-      <p><strong>Subject: Maintenance Request — ${title} (${id})</strong></p>
+      <p><strong>Subject: Maintenance Request — ${escapeHtml(title)} (${id})</strong></p>
       <p>Hello,</p>
-      <p>This is a maintenance request submitted by ${name}, Unit ${unit}${building ? ', ' + building : ''}, on ${today}, logged as ticket ${id}.</p>
-      <p><strong>Category:</strong> ${category} &nbsp; <strong>Priority:</strong> ${urgencyLabel[urgency]}</p>
-      <p>${desc}</p>
+      <p>This is a maintenance request submitted by ${escapeHtml(name)}, Unit ${escapeHtml(unit)}${building ? ', ' + escapeHtml(building) : ''}, on ${today}, logged as ticket ${id}.</p>
+      <p><strong>Category:</strong> ${escapeHtml(category)} &nbsp; <strong>Priority:</strong> ${urgencyLabel[urgency]}</p>
+      <p>${escapeHtml(desc)}</p>
       ${currentPhoto ? `<p>1 photo attached.</p>` : ''}
-      <p><strong>Contact:</strong> ${phone}</p>
+      <p><strong>Contact:</strong> ${escapeHtml(phone)}</p>
       <p>Please confirm receipt and provide an expected timeline. This request will be automatically followed up on if there's no response within 3 days.</p>
     `;
 
@@ -872,7 +885,7 @@
           <div class="dir-cat">${d.cat}</div>
           <div class="dir-blurb">${d.blurb}</div>
           ${d.curated
-            ? `<div class="dir-curated">\u2713 Recommended by tenants</div>${d.tenantNote ? `<div class="dir-quote">\u201c${d.tenantNote}\u201d</div>` : ''}`
+            ? `<div class="dir-curated">\u2713 Recommended by tenants</div>${d.tenantNote ? `<div class="dir-quote">\u201c${escapeHtml(d.tenantNote)}\u201d</div>` : ''}`
             : `<div class="dir-social">${d.rating} on Google \u2014 not personally vetted</div>`
           }
         </div>
@@ -985,12 +998,12 @@
       card.innerHTML = `
         <div class="area-card-top">
           <div>
-            <div class="area-room">${entry.room}</div>
-            <div class="area-note">${entry.note}</div>
+            <div class="area-room">${escapeHtml(entry.room)}</div>
+            <div class="area-note">${escapeHtml(entry.note)}</div>
           </div>
           <button type="button" class="area-remove" data-index="${i}">Remove</button>
         </div>
-        ${entry.photo ? `<img class="area-thumb" src="${entry.photo}" alt="Photo of ${entry.room}">` : ''}
+        ${entry.photo ? `<img class="area-thumb" src="${entry.photo}" alt="Photo of ${escapeHtml(entry.room)}">` : ''}
       `;
       card.querySelector('.area-remove').addEventListener('click', () => {
         currentReportEntries.splice(i, 1);
@@ -1037,7 +1050,7 @@
         <div class="perf"></div>
         <button class="trail-toggle">Show areas (${r.areas.length})</button>
         <div class="trail">
-          ${r.areas.map(a => `<div class="trail-item"><span class="trail-date">${a.room}</span><span class="trail-text">${a.note}</span></div>`).join('')}
+          ${r.areas.map(a => `<div class="trail-item"><span class="trail-date">${escapeHtml(a.room)}</span><span class="trail-text">${escapeHtml(a.note)}</span></div>`).join('')}
         </div>
       `;
       const toggle = card.querySelector('.trail-toggle');
@@ -1073,7 +1086,7 @@
     reportSummaryText.innerHTML = `
       <p><strong>${reportTypeLabel[type]} Condition Report (${id})</strong></p>
       <p>Filed ${today} \u2014 ${report.areas.length} area${report.areas.length === 1 ? '' : 's'} documented.</p>
-      ${report.areas.map(a => `<p><strong>${a.room}:</strong> ${a.note}</p>`).join('')}
+      ${report.areas.map(a => `<p><strong>${escapeHtml(a.room)}:</strong> ${escapeHtml(a.note)}</p>`).join('')}
     `;
 
     currentReportEntries = [];
